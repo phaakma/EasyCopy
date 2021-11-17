@@ -19,6 +19,7 @@ import pandas as pd
 import copy
 import math
 import socket
+import keyring
 
 
 class EasyCopy():
@@ -552,30 +553,22 @@ class EasyCopy():
             target_dataset = ""
 
             source = params['source']
-            source['basename'] = os.path.basename(source['path'])
             self.logger.debug({"topic": "SOURCE", "code": "START",
-                               "message": f"{source['basename']}", "source_dataset": f"{source['basename']}"})
+                               "message": f"Copy started", "source_dataset": f"{source['path']}"})
 
             source_exists = arcpy.Exists(source['path'])
-            assert source_exists, f"Source did not exist: {source['basename']}"
+            assert source_exists, f"Source did not exist: {source['path']}"
             source["describe"] = arcpy.da.Describe(source["path"])
 
             targets = params['targets']
             for i, target in enumerate(targets):
-                target["describe"] = arcpy.da.Describe(target["path"])
-                target["workspace"] = arcpy.da.Describe(
-                    target['describe'].get('path'))
-                target['schema_type'] = target.get('schema_type') if target.get(
-                    'schema_type') is not None else "NO_TEST"
-                target['field_mapping'] = target.get('field_mapping') if target.get(
-                    'field_mapping') is not None else ""
-
                 if 'http' in target["path"]:
                     # check for credentials and log in
                     assert(target['profile'] or (target['portalUrl'] and target['username'] and target['password'])
                             ), f"Target is a feature service but insufficient login parameters supplied."
                     if target['profile'] is not None:
                         targetGIS = GIS(profile=target['profile'])
+                        target['password'] = keyring.get_password("arcgis_python_api_profile_passwords", target['profile'])
                     else:
                         targetGIS = GIS(
                             url=target['portalUrl'], username=target['username'], password=target['password'])
@@ -584,11 +577,22 @@ class EasyCopy():
                     target['gis'] = targetGIS
                     target['layer'] = arcgis.features.FeatureLayer(
                         target["path"])
+                    
+                    arcpy.SignInToPortal(targetGIS.url, targetGIS.users.me.username, target['password'])
+
                     self.logger.debug({"topic": "LOGIN", "code": "COMPLETED",
                                "message": f"Logged into target portal: {targetGIS.url}, {targetGIS.users.me.username}"})
 
                 target_exists = arcpy.Exists(target['path'])
                 assert target_exists, f"Target did not exist: {target['path']}"
+                
+                target["describe"] = arcpy.da.Describe(target["path"])
+                target["workspace"] = arcpy.da.Describe(
+                    target['describe'].get('path'))
+                target['schema_type'] = target.get('schema_type') if target.get(
+                    'schema_type') is not None else "NO_TEST"
+                target['field_mapping'] = target.get('field_mapping') if target.get(
+                    'field_mapping') is not None else ""
 
             source_dataset = source['path']
 
