@@ -580,7 +580,16 @@ class EasyCopy():
                     target['layer'] = arcgis.features.FeatureLayer(
                         target["path"])
                     
-                    arcpy.SignInToPortal(targetGIS.url, targetGIS.users.me.username, target['password'])
+                    try:
+                        arcpyLogin = arcpy.SignInToPortal(targetGIS.url, targetGIS.users.me.username, target['password'])
+                        self.logger.debug({"topic":"LOGIN", "code": "SUCCESS", "message":f"Arcpy login to {targetGIS.url} with user {targetGIS.users.me.username} was successful."})
+                    except Exception as e:
+                        err = buildErrorMessage(e)
+                        print(err)
+                        self.logger.error({"topic": "LOGIN", "code": "ERROR",
+                                        "message": f"Arcpy login to {targetGIS.url} failed. Error: {err}"})
+                        traceback.print_tb(e.__traceback__)
+                        raise Exception("Arcpy login failed. Please troubleshoot login details and try again.")
 
                     self.logger.debug({"topic": "LOGIN", "code": "COMPLETED",
                                "message": f"Logged into target portal: {targetGIS.url}, {targetGIS.users.me.username}"})
