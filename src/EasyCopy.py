@@ -581,7 +581,11 @@ class EasyCopy():
                         target["path"])
                     
                     try:
-                        arcpyLogin = arcpy.SignInToPortal(targetGIS.url, targetGIS.users.me.username, target['password'])
+                        if "arcgis.com" in targetGIS.url:
+                            portalUrlToUse = r"https://www.arcgis.com"
+                        else:
+                            portalUrlToUse = targetGIS.url
+                        arcpyLogin = arcpy.SignInToPortal(portalUrlToUse, targetGIS.users.me.username, target['password'])
                         self.logger.debug({"topic":"LOGIN", "code": "SUCCESS", "message":f"Arcpy login to {targetGIS.url} with user {targetGIS.users.me.username} was successful."})
                     except Exception as e:
                         err = buildErrorMessage(e)
