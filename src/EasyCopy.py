@@ -569,6 +569,8 @@ class EasyCopy():
                     if target['profile'] is not None:
                         targetGIS = GIS(profile=target['profile'])
                         target['password'] = keyring.get_password("arcgis_python_api_profile_passwords", target['profile'])
+                        if target['password'] is None:
+                            target['password'] = keyring.get_password(f"{target['profile']}@arcgis_python_api_profile_passwords", target['profile'])
                     else:
                         targetGIS = GIS(
                             url=target['portalUrl'], username=target['username'], password=target['password'])
