@@ -119,39 +119,8 @@ class EasyCopy():
             field_list = []
             field_list_without_oid = []
 
-            field_types_to_exclude = ['Blob', 'GlobalID', 'Raster', 'Geometry']
-            field_names_to_omit = ['Shape_STArea__',
-                                   'Shape.STArea()',
-                                   'Shape_STLength__',
-                                   'Shape.STLength()',
-                                   'Shape__Length',
-                                   'Shape_Length',
-                                   'Shape__Area',
-                                   'Shape_Area',
-                                   'created_user',
-                                   'created_date',
-                                   'last_edited_user',
-                                   'last_edited_date',
-                                   'Edited_Date',
-                                   'Creator',
-                                   'CreateDate',
-                                   'Editor',
-                                   'EditDate',
-                                   target['describe'].get(
-                                       'createdAtFieldName'),
-                                   target['describe'].get('creatorFieldName'),
-                                   target['describe'].get('editedAtFieldName'),
-                                   target['describe'].get('editorFieldName'),
-                                   target['describe'].get('lengthFieldName'),
-                                   target['describe'].get('areaFieldName'),
-                                   source['describe'].get(
-                                       'createdAtFieldName'),
-                                   source['describe'].get('creatorFieldName'),
-                                   source['describe'].get('editedAtFieldName'),
-                                   source['describe'].get('editorFieldName'),
-                                   source['describe'].get('lengthFieldName'),
-                                   source['describe'].get('areaFieldName')
-                                   ]
+            field_types_to_exclude = self.getFieldTypeExclusions()
+            field_names_to_omit = self.getFieldNameExclusions(target, source)
 
             for field in target['describe'].get('fields'):
                 if field.type not in field_types_to_exclude and field.name not in field_names_to_omit:
@@ -516,6 +485,81 @@ class EasyCopy():
         finally:
             pass
 
+    def compareSchemas(self, source, target):
+        if source.get('describe') is None:
+            source["describe"] = arcpy.da.Describe(source["path"])
+        if target.get('describe') is None:
+            target["describe"] = arcpy.da.Describe(target["path"])
+
+        field_names_to_omit = self.getFieldNameExclusions(source, target)
+        field_types_to_exclude = self.getFieldTypeExclusions()
+        field_types_to_exclude.append('OID')
+
+        source_fields = [field for field in source['describe'].get('fields') if field.type not in field_types_to_exclude and field.name not in field_names_to_omit]
+        target_fields = [field for field in target['describe'].get('fields') if field.type not in field_types_to_exclude and field.name not in field_names_to_omit]
+
+        in_source_not_in_target = []
+
+        for field in source_fields:
+            matchFound = False
+            for f in target_fields:
+                if field.name == f.name and field.type == f.type:
+                    matchFound = True 
+            if not matchFound:
+                in_source_not_in_target.append(field)
+
+        match = True
+        message = ""
+        if len(in_source_not_in_target) > 0:
+            match = False
+            fieldDetails = [f"Name: {field.name}, type: {field.type}." for field in in_source_not_in_target]
+            message = ",".join(fieldDetails)
+
+        return { "match": match, "fields": in_source_not_in_target, "message": message }
+
+    def getFieldTypeExclusions(self):
+        return ['Blob', 'GlobalID', 'Raster', 'Geometry']
+      
+    def getFieldNameExclusions(self, target, source):        
+        field_names_to_omit = ['Shape_STArea__',
+                                'Shape.STArea()',
+                                'Shape_STLength__',
+                                'Shape.STLength()',
+                                'Shape__Length',
+                                'Shape_Length',
+                                'Shape__Area',
+                                'Shape_Area',
+                                'created_user',
+                                'created_date',
+                                'last_edited_user',
+                                'last_edited_date',
+                                'Edited_Date',
+                                'Creator',
+                                'CreateDate',
+                                'Editor',
+                                'EditDate']
+
+        if target is not None:
+            if target.get('describe') is None:
+                target["describe"] = arcpy.da.Describe(target["path"])
+            field_names_to_omit.append(target['describe'].get('creatorFieldName'))
+            field_names_to_omit.append(target['describe'].get('createdAtFieldName'))
+            field_names_to_omit.append(target['describe'].get('editorFieldName'))
+            field_names_to_omit.append(target['describe'].get('editedAtFieldName'))                
+            field_names_to_omit.append(target['describe'].get('lengthFieldName'))
+            field_names_to_omit.append(target['describe'].get('areaFieldName'))
+        if source is not None:
+            if source.get('describe') is None:
+                source["describe"] = arcpy.da.Describe(source["path"])
+            field_names_to_omit.append(source['describe'].get('creatorFieldName'))
+            field_names_to_omit.append(source['describe'].get('createdAtFieldName'))
+            field_names_to_omit.append(source['describe'].get('editorFieldName'))
+            field_names_to_omit.append(source['describe'].get('editedAtFieldName'))                
+            field_names_to_omit.append(source['describe'].get('lengthFieldName'))
+            field_names_to_omit.append(source['describe'].get('areaFieldName')) 
+        return field_names_to_omit
+        
+
     def refreshData(self, source=None, target=None, method="COMPARE", idField=None, targetProfile=None, targetPortalUrl=None, targetUsername=None, targetPassword=None):
         """Update a target dataset from a source dataset"""
 
@@ -608,6 +652,14 @@ class EasyCopy():
                     'schema_type') is not None else "NO_TEST"
                 target['field_mapping'] = target.get('field_mapping') if target.get(
                     'field_mapping') is not None else ""
+
+                schemaCheck = self.compareSchemas(source, target)
+                if schemaCheck.get('match') is not True:
+                    self.logger.error({"topic": "SCHEMA", "code": "MISMATCH",
+                               "message": f"Source fields not matching target: {schemaCheck.get('message')}"})
+                    return
+                else:
+                    self.logger.debug({"topic": "SCHEMA","code":"PASS", "message":f"Schema check passed.", "source_dataset": source_dataset, "target_dataset": target_dataset})               
 
             source_dataset = source['path']
 
