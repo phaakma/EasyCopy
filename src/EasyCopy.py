@@ -495,8 +495,8 @@ class EasyCopy():
         field_types_to_exclude = self.getFieldTypeExclusions()
         field_types_to_exclude.append('OID')
 
-        source_fields = [field for field in source['describe'].get('fields') if field.type not in field_types_to_exclude and field.name not in field_names_to_omit]
-        target_fields = [field for field in target['describe'].get('fields') if field.type not in field_types_to_exclude and field.name not in field_names_to_omit]
+        source_fields = [field for field in source['describe'].get('fields') if field.type not in field_types_to_exclude and field.name.lower() not in field_names_to_omit]
+        target_fields = [field for field in target['describe'].get('fields') if field.type not in field_types_to_exclude and field.name.lower() not in field_names_to_omit]
 
         in_source_not_in_target = []
 
@@ -521,44 +521,43 @@ class EasyCopy():
         return ['Blob', 'GlobalID', 'Raster', 'Geometry']
       
     def getFieldNameExclusions(self, target, source):        
-        field_names_to_omit = ['Shape_STArea__',
-                                'Shape.STArea()',
-                                'Shape_STLength__',
-                                'Shape.STLength()',
-                                'Shape__Length',
-                                'Shape_Length',
-                                'Shape__Area',
-                                'Shape_Area',
+        field_names_to_omit = ['shape_starea__',
+                                'shape.starea()',
+                                'shape_stlength__',
+                                'shape.stlength()',
+                                'shape__length',
+                                'shape_length',
+                                'shape__area',
+                                'shape_area',
                                 'created_user',
                                 'created_date',
                                 'last_edited_user',
                                 'last_edited_date',
-                                'Edited_Date',
-                                'Creator',
-                                'CreateDate',
-                                'Editor',
-                                'EditDate']
+                                'edited_date',
+                                'creator',
+                                'createDate',
+                                'editor',
+                                'editdate']
 
         if target is not None:
             if target.get('describe') is None:
                 target["describe"] = arcpy.da.Describe(target["path"])
-            field_names_to_omit.append(target['describe'].get('creatorFieldName'))
-            field_names_to_omit.append(target['describe'].get('createdAtFieldName'))
-            field_names_to_omit.append(target['describe'].get('editorFieldName'))
-            field_names_to_omit.append(target['describe'].get('editedAtFieldName'))                
-            field_names_to_omit.append(target['describe'].get('lengthFieldName'))
-            field_names_to_omit.append(target['describe'].get('areaFieldName'))
+            field_names_to_omit.append(str(target['describe'].get('creatorFieldName')).lower())
+            field_names_to_omit.append(str(target['describe'].get('createdAtFieldName')).lower())
+            field_names_to_omit.append(str(target['describe'].get('editorFieldName')).lower())
+            field_names_to_omit.append(str(target['describe'].get('editedAtFieldName')).lower())                
+            field_names_to_omit.append(str(target['describe'].get('lengthFieldName')).lower())
+            field_names_to_omit.append(str(target['describe'].get('areaFieldName')).lower())
         if source is not None:
             if source.get('describe') is None:
                 source["describe"] = arcpy.da.Describe(source["path"])
-            field_names_to_omit.append(source['describe'].get('creatorFieldName'))
-            field_names_to_omit.append(source['describe'].get('createdAtFieldName'))
-            field_names_to_omit.append(source['describe'].get('editorFieldName'))
-            field_names_to_omit.append(source['describe'].get('editedAtFieldName'))                
-            field_names_to_omit.append(source['describe'].get('lengthFieldName'))
-            field_names_to_omit.append(source['describe'].get('areaFieldName')) 
+            field_names_to_omit.append(str(source['describe'].get('creatorFieldName')).lower())
+            field_names_to_omit.append(str(source['describe'].get('createdAtFieldName')).lower())
+            field_names_to_omit.append(str(source['describe'].get('editorFieldName')).lower())
+            field_names_to_omit.append(str(source['describe'].get('editedAtFieldName')).lower())                
+            field_names_to_omit.append(str(source['describe'].get('lengthFieldName')).lower())
+            field_names_to_omit.append(str(source['describe'].get('areaFieldName')).lower()) 
         return field_names_to_omit
-        
 
     def refreshData(self, source=None, target=None, method="COMPARE", idField=None, targetProfile=None, targetPortalUrl=None, targetUsername=None, targetPassword=None):
         """Update a target dataset from a source dataset"""
@@ -568,7 +567,7 @@ class EasyCopy():
             "source": {
                 "path": source
             },
-            "targets": [
+            "target":
                 {
                     "path": target,
                     "method": method,
@@ -576,13 +575,12 @@ class EasyCopy():
                     "portalUrl": targetPortalUrl,
                     "username": targetUsername,
                     "password": targetPassword
-                }
-            ]
+                }           
         }
 
-        self.refreshDatafromMultiple(params)
+        self.refreshDatafromParams(params)
 
-    def refreshDatafromMultiple(self, params):
+    def refreshDatafromParams(self, params):
 
         refreshDataStart = time.perf_counter()
         result = None
@@ -604,226 +602,187 @@ class EasyCopy():
             assert source_exists, f"Source did not exist: {source['path']}"
             source["describe"] = arcpy.da.Describe(source["path"])
 
-            targets = params['targets']
-            for i, target in enumerate(targets):
-                if 'http' in target["path"]:
-                    # check for credentials and log in
-                    assert(target['profile'] or (target['portalUrl'] and target['username'] and target['password'])
-                            ), f"Target is a feature service but insufficient login parameters supplied."
-                    if target['profile'] is not None:
-                        targetGIS = GIS(profile=target['profile'])
-                        target['password'] = keyring.get_password("arcgis_python_api_profile_passwords", target['profile'])
-                        if target['password'] is None:
-                            target['password'] = keyring.get_password(f"{target['profile']}@arcgis_python_api_profile_passwords", target['profile'])
-                    else:
-                        targetGIS = GIS(
-                            url=target['portalUrl'], username=target['username'], password=target['password'])
-                    assert(
-                        targetGIS.users.me), f"Login attempt to target portal was unsuccessful. Check portal and credential parameters."
-                    target['gis'] = targetGIS
-                    target['layer'] = arcgis.features.FeatureLayer(
-                        target["path"])
-                    
-                    try:
-                        if "arcgis.com" in targetGIS.url:
-                            portalUrlToUse = r"https://www.arcgis.com"
-                        else:
-                            portalUrlToUse = targetGIS.url
-                        arcpyLogin = arcpy.SignInToPortal(portalUrlToUse, targetGIS.users.me.username, target['password'])
-                        self.logger.debug({"topic":"LOGIN", "code": "SUCCESS", "message":f"Arcpy login to {targetGIS.url} with user {targetGIS.users.me.username} was successful."})
-                    except Exception as e:
-                        err = buildErrorMessage(e)
-                        print(err)
-                        self.logger.error({"topic": "LOGIN", "code": "ERROR",
-                                        "message": f"Arcpy login to {targetGIS.url} failed. Error: {err}"})
-                        traceback.print_tb(e.__traceback__)
-                        raise Exception("Arcpy login failed. Please troubleshoot login details and try again.")
+            target = params['target']
 
-                    self.logger.debug({"topic": "LOGIN", "code": "COMPLETED",
-                               "message": f"Logged into target portal: {targetGIS.url}, {targetGIS.users.me.username}"})
-
-                target_exists = arcpy.Exists(target['path'])
-                assert target_exists, f"Target did not exist: {target['path']}"
-                
-                target["describe"] = arcpy.da.Describe(target["path"])
-                target["workspace"] = arcpy.da.Describe(
-                    target['describe'].get('path'))
-                target['schema_type'] = target.get('schema_type') if target.get(
-                    'schema_type') is not None else "NO_TEST"
-                target['field_mapping'] = target.get('field_mapping') if target.get(
-                    'field_mapping') is not None else ""
-
-                schemaCheck = self.compareSchemas(source, target)
-                if schemaCheck.get('match') is not True:
-                    self.logger.error({"topic": "SCHEMA", "code": "MISMATCH",
-                               "message": f"Source fields not matching target: {schemaCheck.get('message')}"})
-                    return
+            if 'http' in target["path"]:
+                # check for credentials and log in
+                assert(target['profile'] or (target['portalUrl'] and target['username'] and target['password'])
+                        ), f"Target is a feature service but insufficient login parameters supplied."
+                if target['profile'] is not None:
+                    targetGIS = GIS(profile=target['profile'])
+                    target['password'] = keyring.get_password("arcgis_python_api_profile_passwords", target['profile'])
+                    if target['password'] is None:
+                        target['password'] = keyring.get_password(f"{target['profile']}@arcgis_python_api_profile_passwords", target['profile'])
                 else:
-                    self.logger.debug({"topic": "SCHEMA","code":"PASS", "message":f"Schema check passed.", "source_dataset": source_dataset, "target_dataset": target_dataset})               
+                    targetGIS = GIS(
+                        url=target['portalUrl'], username=target['username'], password=target['password'])
+                assert(
+                    targetGIS.users.me), f"Login attempt to target portal was unsuccessful. Check portal and credential parameters."
+                target['gis'] = targetGIS
+                target['layer'] = arcgis.features.FeatureLayer(
+                    target["path"])
+                
+                try:
+                    if "arcgis.com" in targetGIS.url:
+                        portalUrlToUse = r"https://www.arcgis.com"
+                    else:
+                        portalUrlToUse = targetGIS.url
+                    arcpyLogin = arcpy.SignInToPortal(portalUrlToUse, targetGIS.users.me.username, target['password'])
+                    self.logger.debug({"topic":"LOGIN", "code": "SUCCESS", "message":f"Arcpy login to {targetGIS.url} with user {targetGIS.users.me.username} was successful."})
+                except Exception as e:
+                    err = buildErrorMessage(e)
+                    print(err)
+                    self.logger.error({"topic": "LOGIN", "code": "ERROR",
+                                    "message": f"Arcpy login to {targetGIS.url} failed. Error: {err}"})
+                    traceback.print_tb(e.__traceback__)
+                    raise Exception("Arcpy login failed. Please troubleshoot login details and try again.")
+
+                self.logger.debug({"topic": "LOGIN", "code": "COMPLETED",
+                            "message": f"Logged into target portal: {targetGIS.url}, {targetGIS.users.me.username}"})
+
+            target_exists = arcpy.Exists(target['path'])
+            assert target_exists, f"Target did not exist: {target['path']}"
+            
+            target["describe"] = arcpy.da.Describe(target["path"])
+            target["workspace"] = arcpy.da.Describe(
+                target['describe'].get('path'))
+            target['schema_type'] = target.get('schema_type') if target.get(
+                'schema_type') is not None else "NO_TEST"
+            target['field_mapping'] = target.get('field_mapping') if target.get(
+                'field_mapping') is not None else ""
+
+            schemaCheck = self.compareSchemas(source, target)
+            if schemaCheck.get('match') is not True:
+                self.logger.error({"topic": "SCHEMA", "code": "MISMATCH",
+                            "message": f"Source fields not matching target: {schemaCheck.get('message')}"})
+                return
+            else:
+                self.logger.debug({"topic": "SCHEMA","code":"PASS", "message":f"Schema check passed.", "source_dataset": source_dataset, "target_dataset": target_dataset})               
 
             source_dataset = source['path']
 
-            for i, target in enumerate(targets):
-                try:
-                    targetRefreshDataStart = time.perf_counter()
-                    record_count = None
-                    adds_count = None
-                    updates_count = None
-                    deletes_count = None
-                    finalMessage = ""
-                    success = 0
-                    target_dataset = target['path']
-                    self.logger.debug({"topic": "TARGET", "code": "START",
-                                       "message": target.get('method'), "source_dataset": source_dataset, "target_dataset": target_dataset})
+            try:
+                targetRefreshDataStart = time.perf_counter()
+                record_count = None
+                adds_count = None
+                updates_count = None
+                deletes_count = None
+                finalMessage = ""
+                success = 0
+                target_dataset = target['path']
+                self.logger.debug({"topic": "TARGET", "code": "START",
+                                    "message": target.get('method'), "source_dataset": source_dataset, "target_dataset": target_dataset})
 
-                    assert not (target['describe'].get('isVersioned') is True and target.get(
-                        'method') == "TRUNCATE"), "Versioned target datasets cannot be truncated. Please use the COMPARE method."
+                assert not (target['describe'].get('isVersioned') is True and target.get(
+                    'method') == "TRUNCATE"), "Versioned target datasets cannot be truncated. Please use the COMPARE method."
 
-                    if target.get('method') == "TRUNCATE":
-                        if "http" in target['path']:
+                if target.get('method') == "TRUNCATE":
+                    if "http" in target['path']:
 
-                            # During testing, attempts to delete using a 'where 1=1' query
-                            # sometimes timed out, so it is safer to delete chunks of records
+                        # During testing, attempts to delete using a 'where 1=1' query
+                        # sometimes timed out, so it is safer to delete chunks of records
 
-                            objectIds_result = target['layer'].query(
-                                where='1=1', return_ids_only=True)
-                            objectIdFieldname = objectIds_result.get(
-                                "objectIdFieldName")
-                            objectIds = objectIds_result["objectIds"]
-                            objectIds.sort()
+                        objectIds_result = target['layer'].query(
+                            where='1=1', return_ids_only=True)
+                        objectIdFieldname = objectIds_result.get(
+                            "objectIdFieldName")
+                        objectIds = objectIds_result["objectIds"]
+                        objectIds.sort()
 
-                            if len(objectIds) > 0:
-                                chunkSize = 5000
-                                indexObjectids = objectIds[chunkSize::chunkSize]+[
-                                    objectIds[-1]]
-                                for objectid in indexObjectids:
-                                    where = f"{objectIdFieldname} <= {objectid}"
-                                    target['layer'].delete_features(
-                                        where=f"{objectIdFieldname} <= {objectid}")
+                        if len(objectIds) > 0:
+                            chunkSize = 5000
+                            indexObjectids = objectIds[chunkSize::chunkSize]+[
+                                objectIds[-1]]
+                            for objectid in indexObjectids:
+                                where = f"{objectIdFieldname} <= {objectid}"
+                                target['layer'].delete_features(
+                                    where=f"{objectIdFieldname} <= {objectid}")
 
-                            self.logger.debug({"topic": "TRUNCATE", "code": "COMPLETE",
-                                               "message": f"Feature service truncated", "target_dataset": target_dataset})
-                            Row_Count_of_Target_Table = target['layer'].query(
-                                where='1=1', return_count_only=True)
+                        self.logger.debug({"topic": "TRUNCATE", "code": "COMPLETE",
+                                            "message": f"Feature service truncated", "target_dataset": target_dataset})
+                        Row_Count_of_Target_Table = target['layer'].query(
+                            where='1=1', return_count_only=True)
 
-                            field_types_to_exclude = [
-                                'Blob', 'GlobalID', 'Raster', 'Geometry']
-                            field_names_to_omit = [
-                                'Shape_STArea__', 'Shape_STLength__', 'Shape.STLength()']
+                        field_types_to_exclude = [
+                            'Blob', 'GlobalID', 'Raster', 'Geometry']
+                        field_names_to_omit = [
+                            'Shape_STArea__', 'Shape_STLength__', 'Shape.STLength()']
 
-                            field_names_to_omit = [
-                                   target['describe'].get(
-                                       'createdAtFieldName').lower(),
-                                   target['describe'].get('creatorFieldName').lower(),
-                                   target['describe'].get('editedAtFieldName').lower(),
-                                   target['describe'].get('editorFieldName').lower(),
-                                   target['describe'].get('lengthFieldName').lower(),
-                                   target['describe'].get('areaFieldName').lower(),
-                                   source['describe'].get(
-                                       'createdAtFieldName').lower(),
-                                   source['describe'].get('creatorFieldName').lower(),
-                                   source['describe'].get('editedAtFieldName').lower(),
-                                   source['describe'].get('editorFieldName').lower(),
-                                   source['describe'].get('lengthFieldName').lower(),
-                                   source['describe'].get('areaFieldName').lower()
-                                   ]
+                        field_names_to_omit = [
+                                target['describe'].get(
+                                    'createdAtFieldName').lower(),
+                                target['describe'].get('creatorFieldName').lower(),
+                                target['describe'].get('editedAtFieldName').lower(),
+                                target['describe'].get('editorFieldName').lower(),
+                                target['describe'].get('lengthFieldName').lower(),
+                                target['describe'].get('areaFieldName').lower(),
+                                source['describe'].get(
+                                    'createdAtFieldName').lower(),
+                                source['describe'].get('creatorFieldName').lower(),
+                                source['describe'].get('editedAtFieldName').lower(),
+                                source['describe'].get('editorFieldName').lower(),
+                                source['describe'].get('lengthFieldName').lower(),
+                                source['describe'].get('areaFieldName').lower()
+                                ]
 
-                            fieldNames = [f.name for f in source['describe'].get("fields")
-                                          if f.type not in field_types_to_exclude
-                                          and f.name.lower() not in field_names_to_omit]
-                            fieldNames.append("SHAPE@JSON")
-                            fieldTypes = {}
-                            for field in source['describe'].get("fields"):
-                                fieldTypes[field.name] = field.type
-                            count = 0
-                            adds = []
-                            with arcpy.da.SearchCursor(source['path'], fieldNames, where_clause='1=1') as sourceCursor:
-                                for sourceRow in sourceCursor:
-                                    count += 1
-                                    geometry = {}
-                                    attributes = {}
-                                    for i, fieldName in enumerate(fieldNames):
-                                        if fieldName == "SHAPE@JSON":
-                                            geometry = json.loads(sourceRow[i])
-                                        elif fieldTypes.get(fieldName) == "Date" and sourceRow[i] is not None:
-                                            attributes[fieldName] = sourceRow[i].replace(
-                                                tzinfo=timezone.utc)
-                                        else:
-                                            attributes[fieldName] = sourceRow[i]
+                        fieldNames = [f.name for f in source['describe'].get("fields")
+                                        if f.type not in field_types_to_exclude
+                                        and f.name.lower() not in field_names_to_omit]
+                        fieldNames.append("SHAPE@JSON")
+                        fieldTypes = {}
+                        for field in source['describe'].get("fields"):
+                            fieldTypes[field.name] = field.type
+                        count = 0
+                        adds = []
+                        with arcpy.da.SearchCursor(source['path'], fieldNames, where_clause='1=1') as sourceCursor:
+                            for sourceRow in sourceCursor:
+                                count += 1
+                                geometry = {}
+                                attributes = {}
+                                for i, fieldName in enumerate(fieldNames):
+                                    if fieldName == "SHAPE@JSON":
+                                        geometry = json.loads(sourceRow[i])
+                                    elif fieldTypes.get(fieldName) == "Date" and sourceRow[i] is not None:
+                                        attributes[fieldName] = sourceRow[i].replace(
+                                            tzinfo=timezone.utc)
+                                    else:
+                                        attributes[fieldName] = sourceRow[i]
 
-                                    adds.append(
-                                        {"attributes": attributes, "geometry": geometry})
+                                adds.append(
+                                    {"attributes": attributes, "geometry": geometry})
 
-                            if target['gis'].properties.isPortal == True and "hosted" in target['path'].lower():
-                                self.logger.debug({"message": f"The target is a hosted feature layer, converting all field names to lowercase.", "target_dataset": target_dataset})
-                                for add in adds:
-                                    add["attributes"] = {k.lower(): v for k,v in add["attributes"].items()}
+                        if target['gis'].properties.isPortal == True and "hosted" in target['path'].lower():
+                            self.logger.debug({"message": f"The target is a hosted feature layer, converting all field names to lowercase.", "target_dataset": target_dataset})
+                            for add in adds:
+                                add["attributes"] = {k.lower(): v for k,v in add["attributes"].items()}
 
-                            chunkSize = 1000
-                            chunkGenerator = (adds[i:i+chunkSize]
-                                              for i in range(0, len(adds), chunkSize))
-                            for chunk in chunkGenerator:
-                                add_results = target['layer'].edit_features(
-                                    adds=chunk)
-                                success_check = set(res["success"]
-                                                    for res in add_results["addResults"])
-                                if all(success_check) is not True:
-                                    self.logger.warning(
-                                        {"topic": "UPLOAD", "code": "ERROR", "message": f"At least one of the records failed to upload", "target_dataset": target_dataset})
-                            Row_Count_of_Source_Table = int(
-                                arcpy.management.GetCount(in_rows=source['path'])[0])
-                            Row_Count_of_Target_Table = target['layer'].query(
-                                where='1=1', return_count_only=True)
-                            record_count = Row_Count_of_Target_Table
-                            if Row_Count_of_Source_Table == Row_Count_of_Target_Table:
-                                finalMessage += f"Data successfully refreshed"
-                                success = 1
-                            else:
-                                finalMessage += f"Refresh data finished but counts do not match. Source count: {Row_Count_of_Source_Table} Target count: {Row_Count_of_Target_Table}"
+                        chunkSize = 1000
+                        chunkGenerator = (adds[i:i+chunkSize]
+                                            for i in range(0, len(adds), chunkSize))
+                        for chunk in chunkGenerator:
+                            add_results = target['layer'].edit_features(
+                                adds=chunk)
+                            success_check = set(res["success"]
+                                                for res in add_results["addResults"])
+                            if all(success_check) is not True:
+                                self.logger.warning(
+                                    {"topic": "UPLOAD", "code": "ERROR", "message": f"At least one of the records failed to upload", "target_dataset": target_dataset})
+                        Row_Count_of_Source_Table = int(
+                            arcpy.management.GetCount(in_rows=source['path'])[0])
+                        Row_Count_of_Target_Table = target['layer'].query(
+                            where='1=1', return_count_only=True)
+                        record_count = Row_Count_of_Target_Table
+                        if Row_Count_of_Source_Table == Row_Count_of_Target_Table:
+                            finalMessage += f"Data successfully refreshed"
+                            success = 1
                         else:
-                            # Target is a database connection to be truncated and all features copied back in
-                            arcpy.management.TruncateTable(
-                                in_table=target['path'])
-                            arcpy.management.Append(inputs=[source['path']], target=target['path'], schema_type=target['schema_type'],
-                                                    field_mapping=target['field_mapping'], subtype="", expression="")
-
-                            if target['workspace'].get('workspaceFactoryProgID') == "esriDataSourcesGDB.FileGDBWorkspaceFactory":
-                                arcpy.Compact_management(
-                                    target['workspace'].get('catalogPath'))
-                                self.logger.debug(
-                                    {"topic": "TARGET", "code": "COMPACTED", "message": f"{target['workspace'].get('catalogPath')}"})
-                            elif target['workspace'].get('workspaceFactoryProgID') == "esriDataSourcesGDB.SdeWorkspaceFactory":
-                                arcpy.AnalyzeDatasets_management(target['describe'].get('path'), "NO_SYSTEM", target['describe'].get(
-                                    'baseName'), "ANALYZE_BASE", "ANALYZE_DELTA", "ANALYZE_ARCHIVE")
-                                self.logger.debug(
-                                    {"topic": "TARGET", "code": "ANALYZED", "message": f"{target['workspace'].get('catalogPath')}"})
-
-                            Row_Count_of_Source_Table = int(
-                                arcpy.management.GetCount(in_rows=source.get('path'))[0])
-                            Row_Count_of_Target_Table = int(
-                                arcpy.management.GetCount(in_rows=target.get('path'))[0])
-                            record_count = Row_Count_of_Target_Table
-                            if Row_Count_of_Source_Table == Row_Count_of_Target_Table:
-                                finalMessage += f"Data successfully refreshed"
-                                success = 1
-                            else:
-                                finalMessage += f"Refresh data finished but counts do not match. Source count: {Row_Count_of_Source_Table} Target count: {Row_Count_of_Target_Table}"
+                            finalMessage += f"Refresh data finished but counts do not match. Source count: {Row_Count_of_Source_Table} Target count: {Row_Count_of_Target_Table}"
                     else:
-                        # Use the comparison method to update the target
-                        assert params.get(
-                            'id_fieldname') is not None, f"Comparison was requested but no id_fieldname was provided."
-
-                        changes = self.doComparison(
-                            target=target, source=source, id_fieldname=params.get('id_fieldname'))
-                        assert changes is not None, f"Comparison of datasets failed to complete."
-
-                        # Process adds, deletes and updates
-                        changesApplied = self.applyChanges(target, changes)
-                        assert changesApplied == True, f"There was a problem encountered when applying changes to {target['path']}"
-
-                        adds_count = len(changes["adds"])
-                        deletes_count = len(changes["deletes"].keys())
-                        updates_count = len(changes["updates"].keys())
+                        # Target is a database connection to be truncated and all features copied back in
+                        arcpy.management.TruncateTable(
+                            in_table=target['path'])
+                        arcpy.management.Append(inputs=[source['path']], target=target['path'], schema_type=target['schema_type'],
+                                                field_mapping=target['field_mapping'], subtype="", expression="")
 
                         if target['workspace'].get('workspaceFactoryProgID') == "esriDataSourcesGDB.FileGDBWorkspaceFactory":
                             arcpy.Compact_management(
@@ -837,29 +796,67 @@ class EasyCopy():
                                 {"topic": "TARGET", "code": "ANALYZED", "message": f"{target['workspace'].get('catalogPath')}"})
 
                         Row_Count_of_Source_Table = int(
-                            arcpy.management.GetCount(in_rows=source['path'])[0])
+                            arcpy.management.GetCount(in_rows=source.get('path'))[0])
                         Row_Count_of_Target_Table = int(
-                            arcpy.management.GetCount(in_rows=target['path'])[0])
+                            arcpy.management.GetCount(in_rows=target.get('path'))[0])
                         record_count = Row_Count_of_Target_Table
                         if Row_Count_of_Source_Table == Row_Count_of_Target_Table:
                             finalMessage += f"Data successfully refreshed"
                             success = 1
                         else:
                             finalMessage += f"Refresh data finished but counts do not match. Source count: {Row_Count_of_Source_Table} Target count: {Row_Count_of_Target_Table}"
+                else:
+                    # Use the comparison method to update the target
+                    assert params.get(
+                        'id_fieldname') is not None, f"Comparison was requested but no id_fieldname was provided."
 
-                except Exception as e:
-                    success = 0
-                    finalMessage = buildErrorMessage(e)
-                    traceback.print_tb(e.__traceback__)
-                finally:
-                    targetRefreshDataExecutionTime = math.ceil(
-                        time.perf_counter() - targetRefreshDataStart)
-                    logMessage = {"topic": "COMPLETED", "code": target.get('method'),
-                                  "message": finalMessage, "source_dataset": source_dataset, "target_dataset": target_dataset, "adds": adds_count, "updates": updates_count, "deletes": deletes_count, "success": success, "elapsed_time": targetRefreshDataExecutionTime, "record_count": record_count}
-                    if success == 1:
-                        self.logger.info(logMessage)
+                    changes = self.doComparison(
+                        target=target, source=source, id_fieldname=params.get('id_fieldname'))
+                    assert changes is not None, f"Comparison of datasets failed to complete."
+
+                    # Process adds, deletes and updates
+                    changesApplied = self.applyChanges(target, changes)
+                    assert changesApplied == True, f"There was a problem encountered when applying changes to {target['path']}"
+
+                    adds_count = len(changes["adds"])
+                    deletes_count = len(changes["deletes"].keys())
+                    updates_count = len(changes["updates"].keys())
+
+                    if target['workspace'].get('workspaceFactoryProgID') == "esriDataSourcesGDB.FileGDBWorkspaceFactory":
+                        arcpy.Compact_management(
+                            target['workspace'].get('catalogPath'))
+                        self.logger.debug(
+                            {"topic": "TARGET", "code": "COMPACTED", "message": f"{target['workspace'].get('catalogPath')}"})
+                    elif target['workspace'].get('workspaceFactoryProgID') == "esriDataSourcesGDB.SdeWorkspaceFactory":
+                        arcpy.AnalyzeDatasets_management(target['describe'].get('path'), "NO_SYSTEM", target['describe'].get(
+                            'baseName'), "ANALYZE_BASE", "ANALYZE_DELTA", "ANALYZE_ARCHIVE")
+                        self.logger.debug(
+                            {"topic": "TARGET", "code": "ANALYZED", "message": f"{target['workspace'].get('catalogPath')}"})
+
+                    Row_Count_of_Source_Table = int(
+                        arcpy.management.GetCount(in_rows=source['path'])[0])
+                    Row_Count_of_Target_Table = int(
+                        arcpy.management.GetCount(in_rows=target['path'])[0])
+                    record_count = Row_Count_of_Target_Table
+                    if Row_Count_of_Source_Table == Row_Count_of_Target_Table:
+                        finalMessage += f"Data successfully refreshed"
+                        success = 1
                     else:
-                        self.logger.error(logMessage)
+                        finalMessage += f"Refresh data finished but counts do not match. Source count: {Row_Count_of_Source_Table} Target count: {Row_Count_of_Target_Table}"
+
+            except Exception as e:
+                success = 0
+                finalMessage = buildErrorMessage(e)
+                traceback.print_tb(e.__traceback__)
+            finally:
+                targetRefreshDataExecutionTime = math.ceil(
+                    time.perf_counter() - targetRefreshDataStart)
+                logMessage = {"topic": "COMPLETED", "code": target.get('method'),
+                                "message": finalMessage, "source_dataset": source_dataset, "target_dataset": target_dataset, "adds": adds_count, "updates": updates_count, "deletes": deletes_count, "success": success, "elapsed_time": targetRefreshDataExecutionTime, "record_count": record_count}
+                if success == 1:
+                    self.logger.info(logMessage)
+                else:
+                    self.logger.error(logMessage)
 
             return True
 
