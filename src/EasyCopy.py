@@ -368,7 +368,7 @@ class EasyCopy():
                     updates.append(
                         {"attributes": attributes, "geometry": geometry})
 
-                chunkSize = 1000
+                chunkSize = 250
                 chunkGenerator = (updates[i:i+chunkSize]
                                   for i in range(0, len(updates), chunkSize))
                 for chunk in chunkGenerator:
@@ -391,7 +391,6 @@ class EasyCopy():
                     adds.append(
                         {"attributes": attributes, "geometry": geometry})
 
-                chunkSize = 1000
                 chunkGenerator = (adds[i:i+chunkSize]
                                   for i in range(0, len(adds), chunkSize))
                 for chunk in chunkGenerator:
@@ -403,7 +402,6 @@ class EasyCopy():
                             {"topic": "ADDS", "code": "ERROR", "message": f"At least one of the add records failed to upload to {target['path']}"})
 
                 deletes = list(set(changes.get('deletes', {}).keys()))
-                chunkSize = 1000
                 chunkGenerator = (deletes[i:i+chunkSize]
                                   for i in range(0, len(deletes), chunkSize))
                 for chunk in chunkGenerator:
