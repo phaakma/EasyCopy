@@ -498,6 +498,8 @@ class EasyCopy():
 
         in_source_not_in_target = []
 
+        message = ""
+
         for field in source_fields:
             matchFound = False
             for f in target_fields:
@@ -505,13 +507,12 @@ class EasyCopy():
                     matchFound = True 
             if not matchFound:
                 in_source_not_in_target.append(field)
+                message += "Source: {field.name}/{field.type}, Target: {f.name}/{f.type}. "
 
         match = True
         message = ""
         if len(in_source_not_in_target) > 0:
             match = False
-            fieldDetails = [f"Name: {field.name}, type: {field.type}." for field in in_source_not_in_target]
-            message = ",".join(fieldDetails)
 
         return { "match": match, "fields": in_source_not_in_target, "message": message }
 
