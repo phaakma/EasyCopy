@@ -510,7 +510,6 @@ class EasyCopy():
                 message += "Source: {field.name}/{field.type}, Target: {f.name}/{f.type}. "
 
         match = True
-        message = ""
         if len(in_source_not_in_target) > 0:
             match = False
 
