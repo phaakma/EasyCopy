@@ -657,7 +657,7 @@ class EasyCopy():
             else:
                 self.logger.debug({"topic": "SCHEMA","code":"PASS", "message":f"Schema check passed.", "source_dataset": source_dataset, "target_dataset": target_dataset})               
 
-            source_dataset = source['path']
+            source_dataset = str(source['path'])
 
             try:
                 targetRefreshDataStart = time.perf_counter()
@@ -667,7 +667,7 @@ class EasyCopy():
                 deletes_count = None
                 finalMessage = ""
                 success = 0
-                target_dataset = target['path']
+                target_dataset = str(target['path'])
                 self.logger.debug({"topic": "TARGET", "code": "START",
                                     "message": target.get('method'), "source_dataset": source_dataset, "target_dataset": target_dataset})
 
