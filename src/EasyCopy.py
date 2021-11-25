@@ -516,9 +516,13 @@ class EasyCopy():
         return { "match": match, "fields": in_source_not_in_target, "message": message }
 
     def getFieldTypeExclusions(self):
+        """Return a list of field types that we don't want to compare.
+        """
         return ['Blob', 'GlobalID', 'Raster', 'Geometry']
       
-    def getFieldNameExclusions(self, target, source):        
+    def getFieldNameExclusions(self, target, source):
+        """Return a list of reserved field names that we don't want to compare.
+        """     
         field_names_to_omit = ['shape_starea__',
                                 'shape.starea()',
                                 'shape_stlength__',
@@ -537,9 +541,7 @@ class EasyCopy():
                                 'createdate',
                                 'editor',
                                 'editdate',
-                                'objectid',
-                                'sp_geometry_area',
-                                'sp_geometry_length']
+                                'objectid']
 
         if target is not None:
             if target.get('describe') is None:
