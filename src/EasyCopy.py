@@ -507,7 +507,7 @@ class EasyCopy():
                     matchFound = True 
             if not matchFound:
                 in_source_not_in_target.append(field)
-                message += "Source: {field.name}/{field.type}, Target: {f.name}/{f.type}. "
+                message += f"Source: {field.name}/{field.type}, Target: {f.name}/{f.type}. "
 
         match = True
         if len(in_source_not_in_target) > 0:
