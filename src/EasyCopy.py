@@ -536,7 +536,10 @@ class EasyCopy():
                                 'creator',
                                 'createdate',
                                 'editor',
-                                'editdate']
+                                'editdate',
+                                'objectid',
+                                'sp_geometry_area',
+                                'sp_geometry_length']
 
         if target is not None:
             if target.get('describe') is None:
