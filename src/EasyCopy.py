@@ -123,7 +123,7 @@ class EasyCopy():
             field_names_to_omit = self.getFieldNameExclusions(target, source)
 
             for field in target['describe'].get('fields'):
-                if field.type not in field_types_to_exclude and field.name not in field_names_to_omit:
+                if field.type not in field_types_to_exclude and field.name.lower() not in field_names_to_omit:
                     if field.name == id_fieldname:
                         id_field = field
                     if field.type == 'OID':
