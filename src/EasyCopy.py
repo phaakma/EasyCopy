@@ -529,11 +529,12 @@ class EasyCopy():
                                 'shape_area',
                                 'created_user',
                                 'created_date',
+                                'creationdate',
                                 'last_edited_user',
                                 'last_edited_date',
                                 'edited_date',
                                 'creator',
-                                'createDate',
+                                'createdate',
                                 'editor',
                                 'editdate']
 
