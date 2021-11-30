@@ -343,10 +343,11 @@ class EasyCopy():
             self.logger.debug({"topic": "TIMER", "code": "METRIC",
                                "message": f"doComparison Execution Time = {doComparisonExecutionTime} seconds, target={targetBasename}", "metric": doComparisonExecutionTime})
 
-    def applyChanges(self, target, changes, chunkSize=250):
+    def applyChanges(self, target, changes):
         try:
             fieldList = changes['fieldList']
             fieldList = [f for f in fieldList if f is not None]
+            chunkSize = int(target.get('chunkSize'))
 
             if 'http' in target.get('path'):
                 layer = target['layer']
@@ -608,7 +609,7 @@ class EasyCopy():
             source["describe"] = arcpy.da.Describe(source["path"])
 
             target = params['target']
-            chunkSize = params['chunkSize']
+            chunkSize = int(target.get('chunkSize'))
 
             if 'http' in target["path"]:
                 # check for credentials and log in
@@ -696,7 +697,8 @@ class EasyCopy():
                         objectIds.sort()
 
                         if len(objectIds) > 0:
-                            indexObjectids = objectIds[chunkSize::chunkSize]+[
+                            deleteChunkSize = 1000
+                            indexObjectids = objectIds[deleteChunkSize::deleteChunkSize]+[
                                 objectIds[-1]]
                             for objectid in indexObjectids:
                                 where = f"{objectIdFieldname} <= {objectid}"
@@ -819,7 +821,7 @@ class EasyCopy():
                     assert changes is not None, f"Comparison of datasets failed to complete."
 
                     # Process adds, deletes and updates
-                    changesApplied = self.applyChanges(target, changes, chunkSize)
+                    changesApplied = self.applyChanges(target, changes)
                     assert changesApplied == True, f"There was a problem encountered when applying changes to {target['path']}"
 
                     adds_count = len(changes["adds"])
