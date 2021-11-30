@@ -343,7 +343,7 @@ class EasyCopy():
             self.logger.debug({"topic": "TIMER", "code": "METRIC",
                                "message": f"doComparison Execution Time = {doComparisonExecutionTime} seconds, target={targetBasename}", "metric": doComparisonExecutionTime})
 
-    def applyChanges(self, target, changes):
+    def applyChanges(self, target, changes, chunkSize=250):
         try:
             fieldList = changes['fieldList']
             fieldList = [f for f in fieldList if f is not None]
@@ -369,7 +369,6 @@ class EasyCopy():
                     updates.append(
                         {"attributes": attributes, "geometry": geometry})
 
-                chunkSize = 250
                 chunkGenerator = (updates[i:i+chunkSize]
                                   for i in range(0, len(updates), chunkSize))
                 for chunk in chunkGenerator:
@@ -564,7 +563,7 @@ class EasyCopy():
             field_names_to_omit.append(str(source['describe'].get('areaFieldName')).lower()) 
         return field_names_to_omit
 
-    def refreshData(self, source=None, target=None, method="COMPARE", idField=None, targetProfile=None, targetPortalUrl=None, targetUsername=None, targetPassword=None):
+    def refreshData(self, source=None, target=None, method="COMPARE", idField=None, targetProfile=None, targetPortalUrl=None, targetUsername=None, targetPassword=None, chunkSize=250):
         """Update a target dataset from a source dataset"""
 
         params = {
@@ -579,7 +578,8 @@ class EasyCopy():
                     "profile": targetProfile,
                     "portalUrl": targetPortalUrl,
                     "username": targetUsername,
-                    "password": targetPassword
+                    "password": targetPassword,
+                    "chunkSize": chunkSize
                 }           
         }
 
@@ -601,13 +601,14 @@ class EasyCopy():
 
             source = params['source']
             self.logger.debug({"topic": "SOURCE", "code": "START",
-                               "message": f"Copy started", "source_dataset": f"{source['path']}"})
+                               "message": f"Copy started from {source['path']}", "source_dataset": f"{source['path']}"})
 
             source_exists = arcpy.Exists(source['path'])
             assert source_exists, f"Source did not exist: {source['path']}"
             source["describe"] = arcpy.da.Describe(source["path"])
 
             target = params['target']
+            chunkSize = params['chunkSize']
 
             if 'http' in target["path"]:
                 # check for credentials and log in
@@ -695,7 +696,6 @@ class EasyCopy():
                         objectIds.sort()
 
                         if len(objectIds) > 0:
-                            chunkSize = 5000
                             indexObjectids = objectIds[chunkSize::chunkSize]+[
                                 objectIds[-1]]
                             for objectid in indexObjectids:
@@ -761,7 +761,6 @@ class EasyCopy():
                             for add in adds:
                                 add["attributes"] = {k.lower(): v for k,v in add["attributes"].items()}
 
-                        chunkSize = 1000
                         chunkGenerator = (adds[i:i+chunkSize]
                                             for i in range(0, len(adds), chunkSize))
                         for chunk in chunkGenerator:
@@ -820,7 +819,7 @@ class EasyCopy():
                     assert changes is not None, f"Comparison of datasets failed to complete."
 
                     # Process adds, deletes and updates
-                    changesApplied = self.applyChanges(target, changes)
+                    changesApplied = self.applyChanges(target, changes, chunkSize)
                     assert changesApplied == True, f"There was a problem encountered when applying changes to {target['path']}"
 
                     adds_count = len(changes["adds"])
