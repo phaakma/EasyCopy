@@ -105,6 +105,8 @@ class EasyCopy():
             self.logger.warning(params)
         elif level.lower()=='info':
             self.logger.info(params)
+        elif level.lower()=='error':
+            self.logger.error(params)
         else:
             self.logger.debug(params)
 
