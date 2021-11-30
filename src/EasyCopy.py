@@ -346,6 +346,7 @@ class EasyCopy():
     def applyChanges(self, target, changes):
         try:
             fieldList = changes['fieldList']
+            fieldList = [f for f in fieldList if f is not None]
 
             if 'http' in target.get('path'):
                 layer = target['layer']
@@ -490,6 +491,7 @@ class EasyCopy():
             target["describe"] = arcpy.da.Describe(target["path"])
 
         field_names_to_omit = self.getFieldNameExclusions(source, target)
+        field_names_to_omit.append('objectid')
         field_types_to_exclude = self.getFieldTypeExclusions()
         field_types_to_exclude.append('OID')
 
@@ -540,8 +542,7 @@ class EasyCopy():
                                 'creator',
                                 'createdate',
                                 'editor',
-                                'editdate',
-                                'objectid']
+                                'editdate']
 
         if target is not None:
             if target.get('describe') is None:
