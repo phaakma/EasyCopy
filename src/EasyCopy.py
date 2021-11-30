@@ -209,6 +209,7 @@ class EasyCopy():
 
             change_set = []
 
+            ## DELETES
             record_ids = set()
             with arcpy.da.SearchCursor(inmemory_comparison_target, field_list) as targetCursor:
                 for targetRow in targetCursor:
@@ -232,6 +233,7 @@ class EasyCopy():
                         deletes[origin_objectid] = (
                             [targetRow[field_list.index(f)] for f in field_list])
 
+            ## ADDS AND UPDATES
             sourceCount = 0
             targetCount = 0
             with arcpy.da.SearchCursor(inmemory_comparison_source, field_list) as sourceCursor:
@@ -258,7 +260,7 @@ class EasyCopy():
                                 if field != objectid_fieldname and field != origin_objectid_fieldname and (src != tgt):
                                     # do a deeper check on the geometry. most of the time comparing the
                                     # json objects is enough and is quick, but if that check fails then it pays to
-                                    # do a property 'geometry.equals' to be sure
+                                    # do a proper 'geometry.equals' to be sure
                                     if src and tgt and field == 'SHAPE@JSON':
                                         source_geom = arcpy.AsShape(src, True)
                                         target_geom = arcpy.AsShape(tgt, True)
