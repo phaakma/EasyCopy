@@ -390,16 +390,20 @@ class EasyCopy():
                                              "message": f"At least one of the update records failed to upload to {target['path']}"})
 
                 adds = []
-                for item in changes.get('adds', []):
-                    attributes = {}
-                    geometry = {}
-                    for n, field in enumerate(fieldList):
-                        if field == "SHAPE@JSON":
-                            geometry = json.loads(item[n])
-                        else:
-                            attributes[field] = item[n]
-                    adds.append(
-                        {"attributes": attributes, "geometry": geometry})
+                ## Turn the add items into dictionaries if necessary
+                if len(changes.get('adds', [])) > 0 and type(changes.get('adds', [])[0]) is not dict:
+                    for item in changes.get('adds', []):
+                        attributes = {}
+                        geometry = {}
+                        for n, field in enumerate(fieldList):
+                            if field == "SHAPE@JSON":
+                                geometry = json.loads(item[n])
+                            else:
+                                attributes[field] = item[n]
+                        adds.append(
+                            {"attributes": attributes, "geometry": geometry})
+                else:
+                    adds = changes.get('adds', [])
 
                 chunkGenerator = (adds[i:i+chunkSize]
                                   for i in range(0, len(adds), chunkSize))
@@ -695,67 +699,37 @@ class EasyCopy():
                 if target.get('method') == "TRUNCATE":
                     if "http" in target['path']:
 
-                        # During testing, attempts to delete using a 'where 1=1' query
-                        # sometimes timed out, so it is safer to delete chunks of records
-
+                        ## Get ALL objects ids and add to the deletes object
                         objectIds_result = target['layer'].query(
                             where='1=1', return_ids_only=True)
-                        objectIdFieldname = objectIds_result.get(
+                        objectid_fieldname = objectIds_result.get(
                             "objectIdFieldName")
                         objectIds = objectIds_result["objectIds"]
-                        objectIds.sort()
+                        deletes = dict.fromkeys(objectIds, None) 
 
-                        if len(objectIds) > 0:
-                            deleteChunkSize = 1000
-                            indexObjectids = objectIds[deleteChunkSize::deleteChunkSize]+[
-                                objectIds[-1]]
-                            for objectid in indexObjectids:
-                                where = f"{objectIdFieldname} <= {objectid}"
-                                target['layer'].delete_features(
-                                    where=f"{objectIdFieldname} <= {objectid}")
 
-                        self.logger.debug({"topic": "TRUNCATE", "code": "COMPLETE",
-                                            "message": f"Feature service truncated", "target_dataset": target_dataset})
-                        Row_Count_of_Target_Table = target['layer'].query(
-                            where='1=1', return_count_only=True)
+                        field_list = []
+                        field_types_to_exclude = self.getFieldTypeExclusions()
+                        field_types_to_exclude.append('OID')
+                        field_names_to_omit = self.getFieldNameExclusions(target, source)
 
-                        field_types_to_exclude = [
-                            'Blob', 'GlobalID', 'Raster', 'Geometry']
-                        field_names_to_omit = [
-                            'Shape_STArea__', 'Shape_STLength__', 'Shape.STLength()']
-
-                        field_names_to_omit = [
-                                target['describe'].get(
-                                    'createdAtFieldName').lower(),
-                                target['describe'].get('creatorFieldName').lower(),
-                                target['describe'].get('editedAtFieldName').lower(),
-                                target['describe'].get('editorFieldName').lower(),
-                                target['describe'].get('lengthFieldName').lower(),
-                                target['describe'].get('areaFieldName').lower(),
-                                source['describe'].get(
-                                    'createdAtFieldName').lower(),
-                                source['describe'].get('creatorFieldName').lower(),
-                                source['describe'].get('editedAtFieldName').lower(),
-                                source['describe'].get('editorFieldName').lower(),
-                                source['describe'].get('lengthFieldName').lower(),
-                                source['describe'].get('areaFieldName').lower()
-                                ]
-
-                        fieldNames = [f.name for f in source['describe'].get("fields")
-                                        if f.type not in field_types_to_exclude
-                                        and f.name.lower() not in field_names_to_omit]
-                        fieldNames.append("SHAPE@JSON")
+                        for field in target['describe'].get('fields'):
+                            if field.type not in field_types_to_exclude and field.name.lower() not in field_names_to_omit:
+                                field_list.append(field.name)
+                        if target['describe'].get('dataType') == 'FeatureClass':
+                            field_list.insert(0, "SHAPE@JSON")
                         fieldTypes = {}
                         for field in source['describe'].get("fields"):
                             fieldTypes[field.name] = field.type
+
                         count = 0
                         adds = []
-                        with arcpy.da.SearchCursor(source['path'], fieldNames, where_clause='1=1') as sourceCursor:
+                        with arcpy.da.SearchCursor(source['path'], field_list, where_clause='1=1') as sourceCursor:
                             for sourceRow in sourceCursor:
                                 count += 1
                                 geometry = {}
                                 attributes = {}
-                                for i, fieldName in enumerate(fieldNames):
+                                for i, fieldName in enumerate(field_list):
                                     if fieldName == "SHAPE@JSON":
                                         geometry = json.loads(sourceRow[i])
                                     elif fieldTypes.get(fieldName) == "Date" and sourceRow[i] is not None:
@@ -772,16 +746,21 @@ class EasyCopy():
                             for add in adds:
                                 add["attributes"] = {k.lower(): v for k,v in add["attributes"].items()}
 
-                        chunkGenerator = (adds[i:i+chunkSize]
-                                            for i in range(0, len(adds), chunkSize))
-                        for chunk in chunkGenerator:
-                            add_results = target['layer'].edit_features(
-                                adds=chunk)
-                            success_check = set(res["success"]
-                                                for res in add_results["addResults"])
-                            if all(success_check) is not True:
-                                self.logger.warning(
-                                    {"topic": "UPLOAD", "code": "ERROR", "message": f"At least one of the records failed to upload", "target_dataset": target_dataset})
+                        changes = {
+                            "id_fieldname": "irrelevant",
+                            "objectid_fieldname": objectid_fieldname,
+                            "fieldList": field_list,
+                            "spatialReference": "irrelevant",
+                            "adds": adds,
+                            "updates": {},
+                            "deletes": deletes
+                        }
+
+                        # Process adds, deletes and updates
+                        changesApplied = self.applyChanges(target, changes)
+                        assert changesApplied == True, f"There was a problem encountered when applying changes to {target['path']}"
+
+                        # Check final row counts
                         Row_Count_of_Source_Table = int(
                             arcpy.management.GetCount(in_rows=source['path'])[0])
                         Row_Count_of_Target_Table = target['layer'].query(
