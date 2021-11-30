@@ -100,8 +100,13 @@ class EasyCopy():
             self.logger.debug(
                 {"topic": "INITIALIZE", "code": "COMPLETED", "message": f"{fqdn}"})
 
-    def log(self, params):
-        self.logger(params)
+    def log(self, params, level='debug'):
+        if level.lower()=='warning':
+            self.logger.warning(params)
+        elif level.lower()=='info':
+            self.logger.info(params)
+        else:
+            self.logger.debug(params)
 
     def doComparison(self, target, source, id_fieldname):
         """
