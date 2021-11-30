@@ -119,8 +119,6 @@ class EasyCopy():
         doComparisonStart = time.perf_counter()
         targetBasename = os.path.basename(target['path'])
         try:
-            # do we need to clear any selections? Note that this would slow the process down if we do.
-
             objectid_fieldname = None
             id_field = None
             field_list = []
@@ -148,6 +146,11 @@ class EasyCopy():
 
             origin_objectid_fieldname = "origin_objectid__"
             field_list.insert(0, origin_objectid_fieldname)
+
+            self.logger.debug({"topic": "DETAILS", "code": "COMPARISON",
+                               "message": f"field_list: {str(field_list)}"})
+            self.logger.debug({"topic": "DETAILS", "code": "COMPARISON",
+                               "message": f"id_fieldname: {str(id_fieldname)}, objectid_fieldname: {objectid_fieldname}"})
 
             # create empty datasets in memory and then append into them from the source and target
             if target['describe'].get('dataType') == 'FeatureClass':
