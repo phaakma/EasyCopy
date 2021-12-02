@@ -110,6 +110,13 @@ class EasyCopy():
         else:
             self.logger.debug(params)
 
+    def sizeof_fmt(self, num, suffix="B"):
+        for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
+            if abs(num) < 1024.0:
+                return f"{num:3.1f}{unit}{suffix}"
+            num /= 1024.0
+        return f"{num:.1f}Yi{suffix}"
+
     def doComparison(self, target, source, id_fieldname):
         """
             Compare two datasets and return changes.
@@ -357,6 +364,7 @@ class EasyCopy():
 
     def applyChanges(self, target, changes):
         try:
+            circuit_breaker_number = 3
             fieldList = changes['fieldList']
             fieldList = [f for f in fieldList if f is not None]
             chunkSize = int(target.get('chunkSize'))
@@ -384,13 +392,31 @@ class EasyCopy():
 
                 chunkGenerator = (updates[i:i+chunkSize]
                                   for i in range(0, len(updates), chunkSize))
-                for chunk in chunkGenerator:
-                    results = layer.edit_features(updates=chunk)
-                    success_check = set(res["success"]
-                                        for res in results["updateResults"])
-                    if all(success_check) is not True:
-                        self.logger.warning({"topic": "UPDATES", "code": "ERROR",
-                                             "message": f"At least one of the update records failed to upload to {target['path']}"})
+                for i, chunk in enumerate(chunkGenerator):
+                    chunk_size_bytes = self.sizeof_fmt(sys.getsizeof(chunk))
+                    error_count = 0
+                    try:
+                        results = layer.edit_features(updates=chunk)
+                        for res in results["updateResults"]:
+                            if res["success"] is not True:
+                                error_count += 1
+                                if error_count < circuit_breaker_number:
+                                    self.logger.warning({"topic": "UPDATES", "code": "ERROR",
+                                                    "message": f"{str(res)}", "target_dataset": target['path']})
+                                else:
+                                    self.logger.warning({"topic": "UPDATES", "code": "ERROR",
+                                                    "message": f"More than {circuit_breaker_number} errors, not logging any more.", "target_dataset": target['path']})
+
+                    except Exception as e:
+                        err = buildErrorMessage(e)
+                        print(err)
+                        traceback.print_tb(e.__traceback__)
+                        if "504" in err:
+                            self.logger.warning({"topic": "UPDATES", "code": "ERROR",
+                                                "message": f"Timeout occured. Chunk {i} ({len(chunk)}, {chunk_size_bytes}). Changes may still have been applied, check final counts.", "target_dataset": target['path']})
+                        else:
+                            self.logger.warning({"topic": "UPDATES", "code": "ERROR",
+                                            "message": f"More than {circuit_breaker_number} errors, not logging any more.", "target_dataset": target['path']})  
 
                 adds = []
                 ## Turn the add items into dictionaries if necessary
@@ -410,24 +436,58 @@ class EasyCopy():
 
                 chunkGenerator = (adds[i:i+chunkSize]
                                   for i in range(0, len(adds), chunkSize))
-                for chunk in chunkGenerator:
-                    results = layer.edit_features(adds=chunk)
-                    success_check = set(res["success"]
-                                        for res in results["addResults"])
-                    if all(success_check) is not True:
-                        self.logger.warning(
-                            {"topic": "ADDS", "code": "ERROR", "message": f"At least one of the add records failed to upload to {target['path']}"})
+                for i, chunk in enumerate(chunkGenerator):
+                    chunk_size_bytes = self.sizeof_fmt(sys.getsizeof(chunk))
+                    error_count = 0
+                    try:
+                        results = layer.edit_features(adds=chunk)
+                        for res in results["addResults"]:
+                            if res["success"] is not True:
+                                error_count += 1
+                                if error_count < circuit_breaker_number:                                
+                                    self.logger.warning({"topic": "ADDS", "code": "ERROR",
+                                                    "message": f"{str(res)}", "target_dataset": target['path']})
+                                else:
+                                    self.logger.warning({"topic": "ADDS", "code": "ERROR",
+                                                    "message": f"More than {circuit_breaker_number} errors, not logging any more.", "target_dataset": target['path']})  
+                    except Exception as e:
+                        err = buildErrorMessage(e)
+                        print(err)
+                        traceback.print_tb(e.__traceback__)
+                        if "504" in err:
+                            self.logger.warning({"topic": "ADDS", "code": "ERROR",
+                                                "message": f"Timeout occured. Chunk {i} ({len(chunk)}, {chunk_size_bytes}). Changes may still have been applied, check final counts.", "target_dataset": target['path']})  
+                        else:
+                            self.logger.warning({"topic": "ADDS", "code": "ERROR",
+                                                "message": err, "target_dataset": target['path']})   
 
                 deletes = list(set(changes.get('deletes', {}).keys()))
                 chunkGenerator = (deletes[i:i+chunkSize]
                                   for i in range(0, len(deletes), chunkSize))
-                for chunk in chunkGenerator:
-                    results = layer.edit_features(deletes=chunk)
-                    success_check = set(res["success"]
-                                        for res in results["deleteResults"])
-                    if all(success_check) is not True:
-                        self.logger.warning({"topic": "DELETES", "code": "ERROR",
-                                             "message": f"At least one of the delete records failed to upload to {target['path']}"})
+                for i, chunk in enumerate(chunkGenerator):
+                    chunk_size_bytes = self.sizeof_fmt(sys.getsizeof(chunk))
+                    error_count = 0
+                    try:
+                        results = layer.edit_features(deletes=chunk)
+                        for res in results["deleteResults"]:
+                            if res["success"] is not True:
+                                error_count += 1
+                                if error_count < circuit_breaker_number:                                
+                                    self.logger.warning({"topic": "DELETES", "code": "ERROR",
+                                                    "message": f"{str(res)}", "target_dataset": target['path']})
+                                else:
+                                    self.logger.warning({"topic": "DELETES", "code": "ERROR",
+                                                    "message": f"More than {circuit_breaker_number} errors, not logging any more.", "target_dataset": target['path']}) 
+                    except Exception as e:
+                        err = buildErrorMessage(e)
+                        print(err)
+                        traceback.print_tb(e.__traceback__)
+                        if "504" in err:
+                            self.logger.warning({"topic": "DELETES", "code": "ERROR",
+                                                "message": f"Timeout occured. Chunk {i} ({len(chunk)}, {chunk_size_bytes}). Changes may still have been applied, check final counts.", "target_dataset": target['path']})
+                        else:
+                            self.logger.warning({"topic": "DELETES", "code": "ERROR",
+                                                "message": err, "target_dataset": target['path']})                            
 
             else:
                 workspace = target['describe'].get('path')
