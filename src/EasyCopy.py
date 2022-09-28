@@ -618,7 +618,8 @@ class EasyCopy():
                                 'creator',
                                 'createdate',
                                 'editor',
-                                'editdate']
+                                'editdate',
+                                'globalid']
 
         if target is not None:
             if target.get('describe') is None:
