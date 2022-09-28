@@ -660,7 +660,7 @@ class EasyCopy():
                 }           
         }
 
-        self.refreshDatafromParams(params)
+        return(self.refreshDatafromParams(params))
 
     def refreshDatafromParams(self, params):
 
