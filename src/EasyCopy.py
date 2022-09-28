@@ -390,6 +390,12 @@ class EasyCopy():
                     updates.append(
                         {"attributes": attributes, "geometry": geometry})
 
+                for item in updates:
+                    if self.geometryHasCurves(item["geometry"]):
+                        self.logger.warning({"topic": "UPDATES", "code": "ERROR",
+                                                    "message": f"Curves detected in geometries which can not be processed. Use the Densify tool to resolve.", "target_dataset": target['path']})
+                        break
+
                 chunkGenerator = (updates[i:i+chunkSize]
                                   for i in range(0, len(updates), chunkSize))
                 for i, chunk in enumerate(chunkGenerator):
@@ -433,6 +439,12 @@ class EasyCopy():
                             {"attributes": attributes, "geometry": geometry})
                 else:
                     adds = changes.get('adds', [])
+
+                for item in adds:
+                    if self.geometryHasCurves(item["geometry"]):
+                        self.logger.warning({"topic": "ADDS", "code": "ERROR",
+                                                    "message": f"Curves detected in geometries which can not be processed. Use the Densify tool to resolve.", "target_dataset": target['path']})
+                        break
 
                 chunkGenerator = (adds[i:i+chunkSize]
                                   for i in range(0, len(adds), chunkSize))
@@ -946,6 +958,24 @@ class EasyCopy():
             self.logger.error({"topic": "CLEANUP", "code": "ERROR",
                                "message": f"Changeset path: {path} Error: {err}"})
             traceback.print_tb(e.__traceback__)
+
+    def geometryHasCurves(self, geometry):
+        """
+        Checks a geometry for true curves and returns True or False.
+        :param geometry: a geometry json object in Esri json format
+        """
+        try:
+            if "curveRings" in json.dumps(geometry):
+                return True
+            else:
+                return False
+        except Exception as e:
+            err = buildErrorMessage(e)
+            self.logger.error({"topic": "CHECK", "code": "ERROR",
+                               "message": err})
+            traceback.print_tb(e.__traceback__)
+            return False
+
 
 
 def buildErrorMessage(e):
