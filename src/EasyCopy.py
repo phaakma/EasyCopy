@@ -795,7 +795,8 @@ class EasyCopy():
                                 attributes = {}
                                 for i, fieldName in enumerate(field_list):
                                     if fieldName == "SHAPE@JSON":
-                                        geometry = json.loads(sourceRow[i])
+                                        if sourceRow[i]:
+                                            geometry = json.loads(sourceRow[i])
                                     elif fieldTypes.get(fieldName) == "Date" and sourceRow[i] is not None:
                                         attributes[fieldName] = sourceRow[i].replace(
                                             tzinfo=timezone.utc)
