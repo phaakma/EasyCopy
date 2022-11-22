@@ -603,7 +603,10 @@ class EasyCopy():
         if len(in_source_not_in_target) > 0:
             match = False
 
-        return { "match": match, "fields": in_source_not_in_target, "message": message }
+        source_fields_string = [f"{field.name}/{field.type}" for field in source_fields]
+        target_fields_string = [f"{field.name}/{field.type}" for field in target_fields]
+
+        return { "match": match, "fields": in_source_not_in_target, "message": message, "source_fields": source_fields_string, "target_fields": target_fields_string }
 
     def getFieldTypeExclusions(self):
         """Return a list of field types that we don't want to compare.
@@ -750,7 +753,11 @@ class EasyCopy():
             schemaCheck = self.compareSchemas(source, target)
             if schemaCheck.get('match') is not True:
                 self.logger.error({"topic": "SCHEMA", "code": "MISMATCH",
-                            "message": f"Source fields not matching target: {schemaCheck.get('message')}"})
+                            "message": f"Source fields not matching target"})
+                self.logger.error({"topic": "SCHEMA", "code": "MISMATCH",
+                            "message": f"Source fields: {schemaCheck.get('source_fields')}"})
+                self.logger.error({"topic": "SCHEMA", "code": "MISMATCH",
+                            "message": f"Source fields: {schemaCheck.get('target_fields')}"})
                 return
             else:
                 self.logger.debug({"topic": "SCHEMA","code":"PASS", "message":f"Schema check passed.", "source_dataset": source_dataset, "target_dataset": target_dataset})               
