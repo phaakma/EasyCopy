@@ -916,8 +916,12 @@ class EasyCopy():
 
                     Row_Count_of_Source_Table = int(
                         arcpy.management.GetCount(in_rows=source['path'])[0])
-                    Row_Count_of_Target_Table = int(
-                        arcpy.management.GetCount(in_rows=target['path'])[0])
+                    if "http" in target['path']:
+                        Row_Count_of_Target_Table = target['layer'].query(
+                                where='1=1', return_count_only=True)
+                    else:
+                        Row_Count_of_Target_Table = int(
+                            arcpy.management.GetCount(in_rows=target['path'])[0])
                     record_count = Row_Count_of_Target_Table
                     if Row_Count_of_Source_Table == Row_Count_of_Target_Table:
                         finalMessage += f"Data successfully refreshed"
