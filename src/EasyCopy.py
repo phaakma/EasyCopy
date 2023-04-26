@@ -185,8 +185,11 @@ class EasyCopy():
                     assert row[0] not in duplicates, f"There are duplicate records in the source of the id field {id_fieldname}, script has stopped. Please resolve duplicates and run again."
                     duplicates.append(row[0])
 
-            fm_oid = arcpy.FieldMap()
+            
             fms = arcpy.FieldMappings()
+            fms.addTable(inmemory_comparison_target)
+
+            fm_oid = arcpy.FieldMap()
             fm_oid.addInputField(
                 target['path'], target['describe'].get('OIDFieldName'))
             oid_name = fm_oid.outputField
