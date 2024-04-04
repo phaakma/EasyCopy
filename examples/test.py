@@ -23,7 +23,9 @@ SOURCE = os.path.join(r"C:\temp\mydb.sde", "mydb.sdeadmin.mydataset1")
 TARGET = os.path.join(r"C:\temp\mydb.sde", "mydb.sdeadmin.mydataset2")
 
 # methods can be TRUNCATE or COMPARE, idField must be the unique identifier
-easycopy.refreshData(source=SOURCE, target=TARGET, method="TRUNCATE", idField="id")
+easycopy.refreshData(source=SOURCE, target=TARGET, method="TRUNCATE")
+
+easycopy.refreshData(source=SOURCE, target=TARGET, method="COMPARE", idField="id")
 
 
 
