@@ -21,7 +21,6 @@ import math
 import socket
 import keyring
 
-
 class EasyCopy():
     """
         A class used to copy datasets from a source to target(s).
@@ -184,7 +183,7 @@ class EasyCopy():
                 for row in cursor:
                     assert row[0] not in duplicates, f"There are duplicate records in the source of the id field {id_fieldname}, script has stopped. Please resolve duplicates and run again."
                     duplicates.append(row[0])
-
+            del cursor
             
             fms = arcpy.FieldMappings()
             fms.addTable(inmemory_comparison_target)
@@ -242,9 +241,11 @@ class EasyCopy():
                     with arcpy.da.SearchCursor(inmemory_comparison_source, field_list, where_clause=where_clause) as sourceCursor:
                         for rowCount in sourceCursor:
                             break
+                    del sourceCursor
                     if rowCount is None:
                         deletes[origin_objectid] = (
                             [targetRow[field_list.index(f)] for f in field_list])
+            del targetCursor
 
             ## ADDS AND UPDATES
             sourceCount = 0
@@ -288,11 +289,11 @@ class EasyCopy():
                                     break
                         if targetRow is None:
                             # no matching record found in the target, so needs to be added.
-                            adds.append(([""]+[sourceRow[field_list.index(f)]
-                                               for f in field_list_without_oid]))
+                            adds.append(([""]+[sourceRow[field_list.index(f)] for f in field_list_without_oid]))
+                    del targetCursor
+            del sourceCursor
 
-            self.logger.debug({"topic": "COUNTS", "code": "COMPLETED",
-                               "message": f"sourceCount: {sourceCount} vs targetCount: {targetCount}"})
+            self.logger.debug({"topic": "COUNTS", "code": "COMPLETED", "message": f"sourceCount: {sourceCount} vs targetCount: {targetCount}"})
 
             adds_length = len(adds)
             updates_length = len(updates.keys())
@@ -529,6 +530,7 @@ class EasyCopy():
                     for row in updateCursor:
                         if row[0] in deletes:
                             updateCursor.deleteRow()
+                del updateCursor
 
                 # update
                 updates = changes["updates"]
@@ -550,12 +552,14 @@ class EasyCopy():
                                 else:
                                     row[i] = new_record[i]
                             updateCursor.updateRow(row)
+                del updateCursor
 
                 # add
                 adds = changes["adds"]
                 with arcpy.da.InsertCursor(target['path'], changes["fieldList"]) as insertCursor:
                     for row in adds:
                         insertCursor.insertRow(row)
+                del insertCursor
 
                 if target['describe'].get('isVersioned') is True:
                     # Stop the edit session and save the changes
@@ -827,6 +831,7 @@ class EasyCopy():
 
                                 adds.append(
                                     {"attributes": attributes, "geometry": geometry})
+                        del sourceCursor
 
                         if target['gis'].properties.isPortal == True and "hosted" in target['path'].lower():
                             self.logger.debug({"message": f"The target is a hosted feature layer, converting all field names to lowercase.", "target_dataset": target_dataset})
