@@ -1,13 +1,21 @@
-"""Public EasyCopy API facade."""
+"""Public EasyCopy API facade with modular orchestration."""
 
 from dataclasses import asdict
 from typing import Any
 
 from easycopy.config import RuntimePaths
+from easycopy.execution import execute_copy
+from easycopy.logging import configure_structured_logger
+from easycopy.schema import compare_schema
+from easycopy.validation import (
+    validate_environment,
+    validate_inputs,
+    validate_target_contract,
+)
 
 
 class _EasyCopyFacade:
-    """Singleton facade exposing the public copy operation."""
+    """Singleton facade exposing copy orchestration."""
 
     def copy_data(
         self,
@@ -23,11 +31,11 @@ class _EasyCopyFacade:
         batch_size: int = 200,
         dry_run: bool = False,
     ) -> dict[str, Any]:
-        """Validate top-level parameters and return normalized request payload."""
+        """Run preflight checks and execute the selected copy workflow."""
         runtime_paths = RuntimePaths.from_inputs(logs_dir, changesets_dir)
         runtime_paths.ensure()
 
-        normalized = {
+        payload = {
             "source": source,
             "target": target,
             "copy_method": copy_method.upper(),
@@ -38,7 +46,25 @@ class _EasyCopyFacade:
             "dry_run": bool(dry_run),
             "runtime_paths": asdict(runtime_paths),
         }
-        return normalized
+
+        logger = configure_structured_logger(runtime_paths.logs_dir)
+        validate_environment()
+        validate_inputs(payload)
+        validate_target_contract(payload)
+
+        schema_result = compare_schema(
+            source=payload["source"],
+            target=payload["target"],
+            mode=payload["schema_comparison_type"],
+        )
+        if not schema_result.compatible:
+            return {
+                "ok": False,
+                "stage": "schema",
+                "errors": schema_result.messages,
+            }
+
+        return execute_copy(payload=payload, logger=logger)
 
 
 EasyCopy = _EasyCopyFacade()
