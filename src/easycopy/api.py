@@ -48,16 +48,21 @@ class _EasyCopyFacade:
         }
 
         logger = configure_structured_logger(runtime_paths.logs_dir)
+        logger.info("Validating runtime environment")
         validate_environment()
+
+        logger.info("Validating input payload")
         validate_inputs(payload)
         validate_target_contract(payload)
 
+        logger.info("Comparing schemas", extra={"mode": payload["schema_comparison_type"]})
         schema_result = compare_schema(
             source=payload["source"],
             target=payload["target"],
             mode=payload["schema_comparison_type"],
         )
         if not schema_result.compatible:
+            logger.error("Schema comparison failed", extra={"messages": schema_result.messages})
             return {
                 "ok": False,
                 "stage": "schema",
