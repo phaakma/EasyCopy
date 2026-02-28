@@ -11,10 +11,10 @@ schema checks, and change-detection workflows.
 
 ## Install (local development)
 
+Open the Python command prompt and ensure the appropriate conda environment is activated.  
+Change the working directory to the EasyCopy project directory.  
+
 ```bash
-python -m venv .venv
-.venv\Scripts\activate
-python -m pip install --upgrade pip
 pip install -e .[dev]
 ```
 
