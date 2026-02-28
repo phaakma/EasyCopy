@@ -1,3 +1,46 @@
+"""Minimal local API smoke test for EasyCopy."""
+
+from easycopy import EasyCopy
+
+
+class Layer:
+    """Simple fake layer for local smoke testing."""
+
+    def __init__(self, records):
+        self.kind = "FEATURE_SERVICE"
+        self.records = records
+        self.fields = [
+            {"name": "id", "type": "INTEGER"},
+            {"name": "name", "type": "STRING", "length": 100},
+        ]
+        self.manager = self
+
+    def truncate(self):
+        """No-op truncate for fake layer."""
+        return None
+
+    def edit_features(self, **kwargs):
+        """No-op edit for fake layer."""
+        return {"ok": True, "kwargs": kwargs}
+
+
+def main() -> None:
+    """Run a minimal local smoke test."""
+    source = Layer(records=[{"id": 1, "name": "Alice"}])
+    target = Layer(records=[])
+
+    result = EasyCopy.copy_data(
+        source=source,
+        target=target,
+        copy_method="TRUNCATE_APPEND",
+        schema_comparison_type="SOFT",
+        log_changesets=False,
+    )
+    print(result)
+
+
+if __name__ == "__main__":
+    main()
 import os
 import sys
 import json

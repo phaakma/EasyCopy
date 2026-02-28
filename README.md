@@ -52,5 +52,23 @@ import easycopy
 print(easycopy.__version__)
 ```
 
+## Migration Notes (Major Refactor)
+
+This release introduces an API-first package architecture.
+
+### New usage
+
+```python
+from easycopy import EasyCopy
+
+EasyCopy.copy_data(source=..., target=..., copy_method="TRUNCATE_APPEND")
+```
+
+### Removed scope
+
+- Legacy compatibility wrappers are not provided.
+- CLI commands are not part of this release.
+
+
 
 
