@@ -3,6 +3,7 @@
 from dataclasses import asdict
 from typing import Any
 
+from easycopy.change_detection.changesets import write_changesets
 from easycopy.config import RuntimePaths
 from easycopy.execution import execute_copy
 from easycopy.logging import configure_structured_logger
@@ -48,7 +49,7 @@ class _EasyCopyFacade:
         }
 
         logger = configure_structured_logger(runtime_paths.logs_dir)
-        logger.info("Validating runtime environment")
+        logger.info("EasyCopy run started", extra={"copy_method": payload["copy_method"]})
         validate_environment()
 
         logger.info("Validating input payload")
@@ -69,7 +70,15 @@ class _EasyCopyFacade:
                 "errors": schema_result.messages,
             }
 
-        return execute_copy(payload=payload, logger=logger)
+        result = execute_copy(payload=payload, logger=logger)
+
+        changeset = getattr(payload.get("target"), "latest_changeset", None)
+        if payload["log_changesets"] and changeset is not None:
+            files = write_changesets(changeset, runtime_paths.changesets_dir)
+            result["changeset_files"] = files
+
+        logger.info("EasyCopy run completed", extra={"ok": result.get("ok", False)})
+        return result
 
 
 EasyCopy = _EasyCopyFacade()
