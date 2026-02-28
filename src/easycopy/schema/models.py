@@ -1,16 +1,22 @@
-"""Schema models used by comparison utilities."""
+"""Schema model types used by the schema comparison engine."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List
 
 
-@dataclass
+@dataclass(slots=True)
 class FieldModel:
+    """Represents a normalized field definition."""
+
     name: str
-    type: str
+    type_name: str
+    length: int | None = None
+    nullable: bool = True
 
 
-@dataclass
+@dataclass(slots=True)
 class SchemaCompareResult:
+    """Represents schema compatibility and detail messages."""
+
     compatible: bool
-    messages: List[str]
+    messages: list[str] = field(default_factory=list)
