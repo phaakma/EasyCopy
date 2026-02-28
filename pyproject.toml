@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "easycopy"
+version = "0.1.0"
+description = "API-first ArcGIS data copy orchestration"
+readme = "README.md"
+requires-python = ">3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "EasyCopy Maintainers" }
+]
+dependencies = [
+  "arcgis>2.4.0",
+  "pandas>=2.2.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.2.2",
+  "pytest>=8.3.0",
+  "pytest-mock>=3.14.0"
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

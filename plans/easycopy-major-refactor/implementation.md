@@ -24,8 +24,8 @@ Project stack and tooling used in this plan:
 ### Step-by-Step Instructions
 
 #### Step 1: Package foundation and build scaffolding
-- [ ] Create `pyproject.toml` and define package metadata, runtime constraints, and local build configuration.
-- [ ] Copy and paste code below into `pyproject.toml`:
+- [x] Create `pyproject.toml` and define package metadata, runtime constraints, and local build configuration.
+- [x] Copy and paste code below into `pyproject.toml`:
 
 ```toml
 [build-system]
@@ -65,8 +65,8 @@ testpaths = ["tests"]
 addopts = "-q"
 ```
 
-- [ ] Create package root with canonical exports.
-- [ ] Copy and paste code below into `src/easycopy/version.py`:
+ - [x] Create package root with canonical exports.
+- [x] Copy and paste code below into `src/easycopy/version.py`:
 
 ```python
 """EasyCopy package version."""
@@ -76,7 +76,7 @@ __all__ = ["__version__"]
 __version__ = "0.1.0"
 ```
 
-- [ ] Copy and paste code below into `src/easycopy/__init__.py`:
+- [x] Copy and paste code below into `src/easycopy/__init__.py`:
 
 ```python
 """Public package exports for EasyCopy."""
@@ -87,8 +87,8 @@ from easycopy.version import __version__
 __all__ = ["EasyCopy", "__version__"]
 ```
 
-- [ ] Update readme for package install/build usage.
-- [ ] Copy and paste code below into `README.md`:
+- [x] Update readme for package install/build usage.
+- [x] Copy and paste code below into `README.md`:
 
 ```markdown
 # EasyCopy
@@ -126,8 +126,8 @@ print(easycopy.__version__)
 ```
 ```
 
-- [ ] Update the example launcher to use package import.
-- [ ] Copy and paste code below into `examples/run_python.bat`:
+- [x] Update the example launcher to use package import.
+- [x] Copy and paste code below into `examples/run_python.bat`:
 
 ```bat
 @echo off
@@ -151,8 +151,8 @@ python examples\test.py
 ---
 
 #### Step 2: Public API redesign with singleton entry point
-- [ ] Add API config model and defaults for logs/changesets directories.
-- [ ] Copy and paste code below into `src/easycopy/config.py`:
+- [x] Add API config model and defaults for logs/changesets directories.
+- [x] Copy and paste code below into `src/easycopy/config.py`:
 
 ```python
 """Runtime configuration for EasyCopy API."""
@@ -190,8 +190,8 @@ class RuntimePaths:
         self.changesets_dir.mkdir(parents=True, exist_ok=True)
 ```
 
-- [ ] Implement public singleton facade with `EasyCopy.copy_data(...)`.
-- [ ] Copy and paste code below into `src/easycopy/api.py`:
+- [x] Implement public singleton facade with `EasyCopy.copy_data(...)`.
+- [x] Copy and paste code below into `src/easycopy/api.py`:
 
 ```python
 """Public EasyCopy API facade."""
@@ -242,8 +242,8 @@ EasyCopy = _EasyCopyFacade()
 __all__ = ["EasyCopy"]
 ```
 
-- [ ] Re-export singleton from package root.
-- [ ] Copy and paste code below into `src/easycopy/__init__.py`:
+- [x] Re-export singleton from package root.
+- [x] Copy and paste code below into `src/easycopy/__init__.py`:
 
 ```python
 """Public package exports for EasyCopy."""
@@ -254,8 +254,8 @@ from easycopy.version import __version__
 __all__ = ["EasyCopy", "__version__"]
 ```
 
-- [ ] Document API-first usage in readme.
-- [ ] Copy and paste code below into `README.md`:
+- [x] Document API-first usage in readme.
+- [x] Copy and paste code below into `README.md`:
 
 ```markdown
 # EasyCopy
